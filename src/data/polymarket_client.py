@@ -42,30 +42,47 @@ def search_events(query: str, limit_per_type: int = 50, active_only: bool = Fals
     return resp.json().get("events", [])
 
 
+def _classify_outcome(question: str) -> str | None:
+    """Map a market question to one of 5 outcome buckets, or None if it
+    doesn't match the expected "Fed Decision in <Month>?" event shape."""
+    q = question.lower()
+    if "no change" in q:
+        return "no_change"
+    if "decrease" in q and "50" in q:
+        return "cut_50"
+    if "decrease" in q and "25" in q:
+        return "cut_25"
+    if "increase" in q and "50" in q:
+        return "hike_50"
+    if "increase" in q and "25" in q:
+        return "hike_25"
+    return None
+
+
 def fetch_fed_decision_history() -> pd.DataFrame:
-    """Stitch every FOMC meeting's "no rate change" market into one raw
-    time series: one row per (meeting, day) with that meeting's implied
-    probability of no change. Phase 3 will turn this into a single rolling
-    "Fed cut probability" feature -- here we just collect the raw pieces,
-    tagged by which meeting they belong to, so no information is lost."""
+    """Stitch every FOMC meeting's 5 outcome-bucket markets (no change,
+    cut 25bps, cut 50+bps, hike 25bps, hike 50+bps) into one raw time
+    series: one row per (meeting, outcome, day). Phase 3 sums the cut
+    buckets into a single "probability of any cut" feature -- here we just
+    collect all 5 raw pieces per meeting, tagged by outcome, so no
+    information is lost and hikes are still available if needed later."""
     events = search_events("Fed interest rate decision")
     rows = []
     for event in events:
-        no_change = next(
-            (m for m in event["markets"] if "no change" in m["question"].lower()),
-            None,
-        )
-        if no_change is None or not no_change.get("clobTokenIds"):
-            continue
-        token_ids = json.loads(no_change["clobTokenIds"])
-        history = fetch_price_history(token_ids[0])
-        if history.empty:
-            continue
-        history = history.reset_index()
-        history["meeting_event"] = event["title"]
-        history["meeting_end_date"] = event["endDate"]
-        history["market_question"] = no_change["question"]
-        rows.append(history)
+        for market in event["markets"]:
+            outcome = _classify_outcome(market["question"])
+            if outcome is None or not market.get("clobTokenIds"):
+                continue
+            token_ids = json.loads(market["clobTokenIds"])
+            history = fetch_price_history(token_ids[0])
+            if history.empty:
+                continue
+            history = history.reset_index()
+            history["meeting_event"] = event["title"]
+            history["meeting_end_date"] = event["endDate"]
+            history["outcome"] = outcome
+            history["market_question"] = market["question"]
+            rows.append(history)
     return pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
 
 
@@ -93,6 +110,7 @@ def save_raw(df: pd.DataFrame, name: str) -> Path:
 if __name__ == "__main__":
     history = fetch_fed_decision_history()
     n_meetings = history["meeting_event"].nunique()
-    path = save_raw(history, "fed_no_change_probability_history")
-    print(f"{len(history)} rows across {n_meetings} FOMC meetings -> {path}")
-    print(history[["timestamp", "probability", "meeting_event"]].tail(10))
+    path = save_raw(history, "fed_decision_probability_history")
+    print(f"{len(history)} rows across {n_meetings} FOMC meetings, "
+          f"outcomes: {sorted(history['outcome'].unique())} -> {path}")
+    print(history[["timestamp", "probability", "meeting_event", "outcome"]].tail(10))

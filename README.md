@@ -19,11 +19,12 @@ whatever the data actually shows, including a negative result.
 
 ## Status
 
-Phase 1 (data collection) in progress. Building the project end-to-end
-first, with the PDF roadmap as the explanatory syllabus alongside each
-piece of real code — see "Current phase" below. This README will be
-updated as each phase lands, and the final version should report actual
-baseline-vs-Transformer results per the roadmap's completion checklist.
+Phases 1-3 (data → vintage alignment → daily feature matrix) done. Building
+the project end-to-end first, with the PDF roadmap as the explanatory
+syllabus alongside each piece of real code — see "Current phase" below.
+This README will be updated as each phase lands, and the final version
+should report actual baseline-vs-Transformer results per the roadmap's
+completion checklist.
 
 ## Current phase
 
@@ -57,6 +58,26 @@ observation_date`.
 Polymarket and SPY/VIX data need no such fix — a market price *is* the
 market's information as of that timestamp, there's no "revision" concept.
 
+**Phase 3 — SQL + daily feature matrix: done.** `src/database/database.py`
+loads all raw data into `data/processed/research.db` per `sql/schema.sql`
+(now with a `vix_prices` table and a richer `polymarket_prices` that keeps
+`meeting_end_date`/`outcome` alongside each price, since feature
+engineering needs to know which FOMC meeting a probability belongs to).
+`src/features/{macro,market,prediction_market}_features.py` build each
+feature group; `src/features/build_daily_features.py` as-of-joins them all
+onto the SPY trading-day calendar into one `daily_features` table /
+`data/processed/daily_features.csv` (2,939 rows, 2015-01-02 → today).
+
+The leakage guard is `pd.merge_asof(..., direction="backward")` on
+`release_date`, not a promise or a comment — verified empirically: July
+2026 CPI (released 2026-08-12) is invisible in `cpi_yoy`/`cpi_surprise` on
+2026-08-11 and appears exactly on 2026-08-12, nowhere earlier. Covered by
+`tests/test_macro_features.py` (2 passing tests) so this can't silently
+break later. Fed-cut probability sums the `cut_25` + `cut_50` outcome
+buckets for whichever FOMC meeting is next as of that trading day (not
+just "no change" anymore — extended `polymarket_client.py` to pull all 5
+outcome buckets per meeting).
+
 `week1_basics/` still has the NumPy warm-up (fixed, runs cleanly) as a
 reference, but isn't the main path — we're learning the underlying
 math/CS/Python from the real pipeline as it's built, phase by phase.
@@ -64,10 +85,11 @@ math/CS/Python from the real pipeline as it's built, phase by phase.
 ## Known limitations (so far)
 
 - **Polymarket history is short.** Liquid Fed-decision markets only go
-  back to ~August 2024 (15 meetings), vs. 10+ years of SPY/FRED data.
-  Any "does Polymarket add value" comparison is only valid over that
-  overlapping window — this will need to be stated explicitly in any
-  final results, not glossed over.
+  back to ~August 2024 (15 meetings), vs. 10+ years of SPY/FRED data —
+  `fed_cut_probability` is `NaN` for ~82% of rows (2,414 / 2,939) before
+  that. Any "does Polymarket add value" comparison is only valid over the
+  overlapping window — this will need to be stated explicitly in any final
+  results, not glossed over.
 - **Earliest FRED vintages may overstate release lag.** ALFRED (FRED's
   vintage archive) only tracks revisions from whenever it started
   recording a series; for the oldest (2015) observations in some series,
@@ -75,12 +97,21 @@ math/CS/Python from the real pipeline as it's built, phase by phase.
   which is why max release lag looks larger for old data than recent data.
   Worth double-checking against official BLS release calendars before
   trusting lag numbers for anything older than a few years.
-- Only the "no rate change" market is tracked per meeting so far — the
-  25bps/50bps cut and hike markets exist too and may be worth pulling for
-  a richer signal than a single probability.
+- **`cpi_surprise` is a proxy, not a real surprise metric.** A true
+  "surprise" is actual-vs-consensus-forecast; we don't have consensus
+  forecast data, so `cpi_surprise`/`cpi_yoy` are computed from
+  month-over-month / year-over-year change in the first-released value
+  itself. Documented in `macro_features.py`'s docstrings — don't present
+  this as a real economic surprise metric without fixing this first.
+  Similarly, `cpi_yoy`/`ppi_yoy` compare two first-release values, not two
+  final-revision values — a defensible but non-standard convention.
+- One 2025 FOMC meeting had an outsized "75+ bps" cut bucket instead of the
+  usual "50+ bps" one; `polymarket_client.py`'s outcome classifier doesn't
+  match it, so that meeting's cut probability slightly understates the
+  true total for that one window.
 
-Everything else below is still a `# TODO` placeholder file, filled in as
-we reach that phase.
+Everything below `src/agents/` and `src/models/` is still a `# TODO`
+placeholder file, filled in as we reach that phase.
 
 | Phase | Roadmap week(s) | What it covers |
 |---|---|---|

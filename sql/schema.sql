@@ -11,8 +11,15 @@ CREATE TABLE macro_observations (
 );
 
 -- Polymarket expectation probabilities over time (continuous/intraday).
+-- meeting_end_date + outcome are kept alongside market_id (rather than
+-- normalized into a separate markets table) because feature engineering
+-- needs to pick "whichever meeting is next as of date t" and sum the two
+-- cut-bucket outcomes -- both need to be queryable without a join back to
+-- an external file.
 CREATE TABLE polymarket_prices (
-    market_id TEXT NOT NULL,
+    market_id TEXT NOT NULL,        -- full market question, e.g. "Fed decreases interest rates by 25 bps after January 2025 meeting?"
+    meeting_end_date DATE NOT NULL, -- which FOMC meeting this market resolves on
+    outcome TEXT NOT NULL,          -- one of: no_change, cut_25, cut_50, hike_25, hike_50
     timestamp DATETIME NOT NULL,
     probability REAL NOT NULL,
     PRIMARY KEY (market_id, timestamp)
@@ -26,6 +33,12 @@ CREATE TABLE spy_prices (
     low REAL NOT NULL,
     close REAL NOT NULL,
     volume INTEGER NOT NULL
+);
+
+-- Daily VIX close (only the close is used as a feature; keep it minimal).
+CREATE TABLE vix_prices (
+    date DATE PRIMARY KEY,
+    close REAL NOT NULL
 );
 
 -- Leakage-safe daily feature matrix X_t, built only from rows known by t.
