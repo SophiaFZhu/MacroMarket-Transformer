@@ -11,6 +11,11 @@ produce a winning strategy — it's to run a full, honest research pipeline
 (data → features → baselines → Transformer → backtest → review) and report
 whatever the data actually shows, including a negative result.
 
+**Results dashboard**: `docs/index.html` — open it directly in a browser,
+or once this repo is pushed and GitHub Pages is enabled (Settings → Pages
+→ Deploy from branch → `main` / `docs`), it's live at
+`https://<your-username>.github.io/sophia-macro-ai-spy/`.
+
 ## Research question
 
 > Does Polymarket expectation data (Fed cuts/hikes, inflation, recession
