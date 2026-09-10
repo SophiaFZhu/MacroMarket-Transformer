@@ -1,5 +1,9 @@
 # MacroMarket-Transformer
 
+*Combining Federal Reserve policy, inflation, labour-market data,
+prediction markets and Transformer models to forecast US equity market
+regimes.*
+
 AI Macro-to-Market Research System — does market-implied expectations from
 Polymarket, combined with U.S. macro data and market data, add any
 information for forecasting SPY? Built as the capstone project from
