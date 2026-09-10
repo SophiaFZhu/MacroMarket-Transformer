@@ -19,12 +19,13 @@ whatever the data actually shows, including a negative result.
 
 ## Status
 
-Phases 1-3 (data → vintage alignment → daily feature matrix) done. Building
-the project end-to-end first, with the PDF roadmap as the explanatory
-syllabus alongside each piece of real code — see "Current phase" below.
-This README will be updated as each phase lands, and the final version
-should report actual baseline-vs-Transformer results per the roadmap's
-completion checklist.
+Phases 1-4 (data → vintage alignment → daily feature matrix → model
+ladder) done. **First real result**: on a macro-only feature set, none of
+naive / persistence / logistic / random forest / LSTM / small Transformer
+beats a majority-class baseline in any way that isn't noise — see
+`reports/PHASE4_FINDINGS.md`. Building the project end-to-end first, with
+the PDF roadmap as the explanatory syllabus alongside each piece of real
+code — see "Current phase" below.
 
 ## Current phase
 
@@ -77,6 +78,24 @@ break later. Fed-cut probability sums the `cut_25` + `cut_50` outcome
 buckets for whichever FOMC meeting is next as of that trading day (not
 just "no change" anymore — extended `polymarket_client.py` to pull all 5
 outcome buckets per meeting).
+
+**Phase 4 — model ladder: done.** `src/models/{baseline,logistic,lstm,
+transformer}.py` implement all 5 rungs (naive, persistence, logistic
+regression, random forest, LSTM, small Transformer — random forest and
+naive share `baseline.py`). `src/validation/walk_forward.py` is
+expanding-window walk-forward with a purge gap (no training label's
+future-return window overlaps the test period — covered by
+`tests/test_walk_forward.py`, 3 passing tests). `src/validation/
+run_model_ladder.py` runs every model through the same 5 folds and reports
+accuracy/AUC/log loss.
+
+**Result: no edge.** On the macro-only feature set (Polymarket excluded —
+see below), every model is statistically indistinguishable from a
+majority-class baseline; AUCs cluster at ~0.50. Full write-up:
+`reports/PHASE4_FINDINGS.md`. This is treated as a real, reportable
+finding, not a bug to chase away — matches this user's prior project
+([`spy-garch-vwap`](../spy-garch-vwap/results/FINDINGS.md)), which found
+the same kind of "no real edge under honest validation" result.
 
 `week1_basics/` still has the NumPy warm-up (fixed, runs cleanly) as a
 reference, but isn't the main path — we're learning the underlying
