@@ -7,10 +7,14 @@ AI Macro-to-Market Research System. Full context and architecture are in
 
 ## Conventions
 
-- Beginner-paced: Sophia is learning Python from scratch through this
-  project (started 2026-09-10). Prefer explaining concepts explicitly over
-  assuming familiarity, and keep her actually writing the code rather than
-  having it appear fully formed — match the roadmap week she's on.
+- Project-first (as of 2026-09-10, superseding the original beginner-paced
+  plan): Sophia wants the project actually finished, learning the
+  math/CS/Python concepts from the real working code as it's built rather
+  than from standalone exercises first. Write real, tested code for each
+  phase and explain it (in comments + chat, referencing the PDF's section
+  numbers) rather than leaving fill-in-the-blank stubs. She's still a
+  programming beginner, so explain concepts explicitly — just don't gate
+  the actual pipeline behind exercises anymore.
 - Every macro/market table keeps `observation_date` separate from
   `release_date` (see `sql/schema.sql`). Never join macro data into a
   day's feature row using a date the data wasn't yet public on — that's

@@ -19,18 +19,43 @@ whatever the data actually shows, including a negative result.
 
 ## Status
 
-Scaffolding stage. No data pipeline or models exist yet — see "Current
-phase" below. This README will be updated as each phase lands, and the
-final version should report actual baseline-vs-Transformer results per the
-roadmap's completion checklist.
+Phase 1 (data collection) in progress. Building the project end-to-end
+first, with the PDF roadmap as the explanatory syllabus alongside each
+piece of real code — see "Current phase" below. This README will be
+updated as each phase lands, and the final version should report actual
+baseline-vs-Transformer results per the roadmap's completion checklist.
 
 ## Current phase
 
-Working through the roadmap's Week 1 (vectors/matrices, Python + NumPy
-basics) before touching the real pipeline — see `week1_basics/`. Phases
-below (from the PDF) are scaffolded as empty modules with a `# TODO` marker
-so the intended architecture is visible; they'll be filled in as the
-matching roadmap week is reached.
+**Phase 1 — data collection.** Working, real (not placeholder) clients so
+far:
+
+- `src/data/market_client.py` — SPY + VIX daily OHLCV via yfinance. Tested,
+  pulls ~2,900 days of history, no API key needed.
+- `src/data/polymarket_client.py` — searches Polymarket events (e.g. "Fed
+  Decision in September?") and pulls daily probability history for a
+  market's outcome token via the CLOB API. Tested and working, but only
+  finds *currently active* events so far — pulling the full historical
+  series back to whenever Polymarket had liquid Fed/CPI/recession markets
+  is still open (see Limitations).
+- `src/data/fred_client.py` — CPI, PPI, unemployment, payrolls, jobless
+  claims, Fed funds rate, 2Y/10Y Treasury yields, all via one free FRED API
+  key (FRED mirrors the BLS series too, so a separate BLS key isn't needed
+  yet). Code is done; blocked on a `FRED_API_KEY` in `.env`.
+
+`week1_basics/` still has the NumPy warm-up (now fixed and runs cleanly) as
+a reference, but isn't the main path anymore — the plan is to build the
+real pipeline and learn the underlying math/CS concepts from that working
+code as we go, phase by phase, rather than solving exercises first.
+
+**Known limitation to fix before Phase 2:** Polymarket search above only
+surfaces open/active markets. Need to pull closed historical events too
+(paginating `public-search` with `events_status` unset, or Polymarket's
+older markets by tag) to get a real historical time series instead of just
+the last few weeks.
+
+Everything else below is still a `# TODO` placeholder file, filled in as
+we reach that phase.
 
 | Phase | Roadmap week(s) | What it covers |
 |---|---|---|

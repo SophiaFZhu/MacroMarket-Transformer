@@ -6,4 +6,5 @@ torch
 requests
 python-dotenv
 fredapi
+yfinance
 pytest
