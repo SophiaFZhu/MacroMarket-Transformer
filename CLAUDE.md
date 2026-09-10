@@ -1,4 +1,4 @@
-# sophia-macro-ai-spy
+# MacroMarket-Transformer
 
 AI Macro-to-Market Research System. Full context and architecture are in
 `README.md`; the source roadmap is

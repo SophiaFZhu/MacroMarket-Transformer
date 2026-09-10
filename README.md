@@ -1,4 +1,4 @@
-# sophia-macro-ai-spy
+# MacroMarket-Transformer
 
 AI Macro-to-Market Research System — does market-implied expectations from
 Polymarket, combined with U.S. macro data and market data, add any
@@ -14,7 +14,7 @@ whatever the data actually shows, including a negative result.
 **Results dashboard**: `docs/index.html` — open it directly in a browser,
 or once this repo is pushed and GitHub Pages is enabled (Settings → Pages
 → Deploy from branch → `main` / `docs`), it's live at
-`https://<your-username>.github.io/sophia-macro-ai-spy/`.
+`https://sophiafzhu.github.io/MacroMarket-Transformer/`.
 
 ## Research question
 
@@ -223,7 +223,7 @@ week1_basics/                         # roadmap Week 1 warm-up exercises
 ## Setup
 
 ```bash
-cd sophia-macro-ai-spy
+cd MacroMarket-Transformer
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
