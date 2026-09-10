@@ -36,8 +36,26 @@ into `data/raw/`:
   change" market into one time series (`fetch_fed_decision_history`).
   2,066 rows across 15 meetings, back to the September 2024 meeting.
 - `src/data/fred_client.py` — CPI, PPI, unemployment, payrolls, jobless
-  claims, Fed funds rate, 2Y/10Y Treasury yields. Needs a free
-  `FRED_API_KEY` in `.env` (one key covers the BLS-mirrored series too).
+  claims, Fed funds rate, 2Y/10Y Treasury yields.
+
+**Phase 2 — release-date / vintage alignment: done, for FRED.** FRED
+series get revised after their first release (CPI, PPI, unemployment,
+payrolls, jobless claims); pulling today's value and treating it as "what
+the market knew back then" is look-ahead bias. `fred_client.py` now
+queries FRED's full vintage history and keeps only each observation
+period's *first* published value, reporting that vintage's publish date as
+`release_date` — matching `sql/schema.sql`'s `macro_observations` table
+exactly. Example: January 2026 CPI = 326.588, first published 2026-02-13;
+later revisions to that same month exist in FRED but are correctly
+ignored. Real lags recovered: CPI/jobless claims ≈ 2 weeks, PPI/payrolls/
+unemployment up to ~3 months for the oldest (2015-era) observations —
+current releases run faster (~2 weeks for CPI, per the tail of
+`cpi.csv`). Fed funds rate and Treasury yields (`DFF`, `DGS2`, `DGS10`)
+aren't meaningfully revised, so those just use `release_date ==
+observation_date`.
+
+Polymarket and SPY/VIX data need no such fix — a market price *is* the
+market's information as of that timestamp, there's no "revision" concept.
 
 `week1_basics/` still has the NumPy warm-up (fixed, runs cleanly) as a
 reference, but isn't the main path — we're learning the underlying
@@ -50,10 +68,13 @@ math/CS/Python from the real pipeline as it's built, phase by phase.
   Any "does Polymarket add value" comparison is only valid over that
   overlapping window — this will need to be stated explicitly in any
   final results, not glossed over.
-- **FRED series are current-revised values, not point-in-time.** CPI/PPI/
-  payrolls get revised after first release; pulling today's value and
-  treating it as "what was known on that date" is look-ahead bias. Phase 2
-  fixes this before any of this data touches a model.
+- **Earliest FRED vintages may overstate release lag.** ALFRED (FRED's
+  vintage archive) only tracks revisions from whenever it started
+  recording a series; for the oldest (2015) observations in some series,
+  the "first tracked vintage" may not be the true original release date,
+  which is why max release lag looks larger for old data than recent data.
+  Worth double-checking against official BLS release calendars before
+  trusting lag numbers for anything older than a few years.
 - Only the "no rate change" market is tracked per meeting so far — the
   25bps/50bps cut and hike markets exist too and may be worth pulling for
   a richer signal than a single probability.
