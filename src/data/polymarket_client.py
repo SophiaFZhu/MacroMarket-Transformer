@@ -25,16 +25,48 @@ CLOB_PRICES_URL = "https://clob.polymarket.com/prices-history"
 RAW_DIR = Path(__file__).resolve().parents[2] / "data" / "raw" / "polymarket"
 
 
-def search_events(query: str, limit_per_type: int = 10, active_only: bool = True) -> list[dict]:
-    """Free-text search over Polymarket events. Each event bundles the
-    related markets (e.g. one "Fed Decision in September?" event contains
-    the 25bps/50bps/no-change markets for that meeting)."""
+def search_events(query: str, limit_per_type: int = 50, active_only: bool = False) -> list[dict]:
+    """Free-text search over Polymarket events, closed + active by default.
+    Each event bundles the related markets (e.g. one "Fed Decision in
+    September?" event contains the 25bps/50bps/no-change markets for that
+    meeting). Coverage is whatever Polymarket had -- for Fed-decision
+    events that's meetings from roughly August 2024 onward (older meetings
+    didn't have a liquid market), which is shorter than the SPY/FRED
+    history. Any backtest comparing "with vs. without Polymarket" is only
+    valid over the overlapping window."""
     params = {"q": query, "limit_per_type": limit_per_type}
     if active_only:
         params["events_status"] = "active"
     resp = requests.get(SEARCH_URL, params=params, timeout=15)
     resp.raise_for_status()
     return resp.json().get("events", [])
+
+
+def fetch_fed_decision_history() -> pd.DataFrame:
+    """Stitch every FOMC meeting's "no rate change" market into one raw
+    time series: one row per (meeting, day) with that meeting's implied
+    probability of no change. Phase 3 will turn this into a single rolling
+    "Fed cut probability" feature -- here we just collect the raw pieces,
+    tagged by which meeting they belong to, so no information is lost."""
+    events = search_events("Fed interest rate decision")
+    rows = []
+    for event in events:
+        no_change = next(
+            (m for m in event["markets"] if "no change" in m["question"].lower()),
+            None,
+        )
+        if no_change is None or not no_change.get("clobTokenIds"):
+            continue
+        token_ids = json.loads(no_change["clobTokenIds"])
+        history = fetch_price_history(token_ids[0])
+        if history.empty:
+            continue
+        history = history.reset_index()
+        history["meeting_event"] = event["title"]
+        history["meeting_end_date"] = event["endDate"]
+        history["market_question"] = no_change["question"]
+        rows.append(history)
+    return pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
 
 
 def fetch_price_history(clob_token_id: str, fidelity_minutes: int = 1440) -> pd.DataFrame:
@@ -59,19 +91,8 @@ def save_raw(df: pd.DataFrame, name: str) -> Path:
 
 
 if __name__ == "__main__":
-    events = search_events("Fed interest rate decision")
-    print(f"Found {len(events)} events matching 'Fed interest rate decision':")
-    for e in events[:5]:
-        print(" -", e["title"], "| markets:", len(e.get("markets", [])))
-
-    # Nearest upcoming FOMC event's "no change" market as a worked example.
-    top_event = events[0]
-    no_change_market = next(
-        m for m in top_event["markets"] if "no change" in m["question"].lower()
-        or "25 bps" in m["question"].lower()
-    )
-    token_ids = json.loads(no_change_market["clobTokenIds"])  # [Yes_token_id, No_token_id]
-    history = fetch_price_history(token_ids[0])
-    path = save_raw(history, "fed_decision_example")
-    print(f"\nSaved {len(history)} rows of '{no_change_market['question']}' -> {path}")
-    print(history.tail())
+    history = fetch_fed_decision_history()
+    n_meetings = history["meeting_event"].nunique()
+    path = save_raw(history, "fed_no_change_probability_history")
+    print(f"{len(history)} rows across {n_meetings} FOMC meetings -> {path}")
+    print(history[["timestamp", "probability", "meeting_event"]].tail(10))

@@ -27,32 +27,36 @@ baseline-vs-Transformer results per the roadmap's completion checklist.
 
 ## Current phase
 
-**Phase 1 — data collection.** Working, real (not placeholder) clients so
-far:
+**Phase 1 — data collection: done.** All three sources pulling real data
+into `data/raw/`:
 
-- `src/data/market_client.py` — SPY + VIX daily OHLCV via yfinance. Tested,
-  pulls ~2,900 days of history, no API key needed.
-- `src/data/polymarket_client.py` — searches Polymarket events (e.g. "Fed
-  Decision in September?") and pulls daily probability history for a
-  market's outcome token via the CLOB API. Tested and working, but only
-  finds *currently active* events so far — pulling the full historical
-  series back to whenever Polymarket had liquid Fed/CPI/recession markets
-  is still open (see Limitations).
+- `src/data/market_client.py` — SPY + VIX daily OHLCV via yfinance.
+  ~2,900 days, back to 2015, no API key needed.
+- `src/data/polymarket_client.py` — stitches every FOMC meeting's "no rate
+  change" market into one time series (`fetch_fed_decision_history`).
+  2,066 rows across 15 meetings, back to the September 2024 meeting.
 - `src/data/fred_client.py` — CPI, PPI, unemployment, payrolls, jobless
-  claims, Fed funds rate, 2Y/10Y Treasury yields, all via one free FRED API
-  key (FRED mirrors the BLS series too, so a separate BLS key isn't needed
-  yet). Code is done; blocked on a `FRED_API_KEY` in `.env`.
+  claims, Fed funds rate, 2Y/10Y Treasury yields. Needs a free
+  `FRED_API_KEY` in `.env` (one key covers the BLS-mirrored series too).
 
-`week1_basics/` still has the NumPy warm-up (now fixed and runs cleanly) as
-a reference, but isn't the main path anymore — the plan is to build the
-real pipeline and learn the underlying math/CS concepts from that working
-code as we go, phase by phase, rather than solving exercises first.
+`week1_basics/` still has the NumPy warm-up (fixed, runs cleanly) as a
+reference, but isn't the main path — we're learning the underlying
+math/CS/Python from the real pipeline as it's built, phase by phase.
 
-**Known limitation to fix before Phase 2:** Polymarket search above only
-surfaces open/active markets. Need to pull closed historical events too
-(paginating `public-search` with `events_status` unset, or Polymarket's
-older markets by tag) to get a real historical time series instead of just
-the last few weeks.
+## Known limitations (so far)
+
+- **Polymarket history is short.** Liquid Fed-decision markets only go
+  back to ~August 2024 (15 meetings), vs. 10+ years of SPY/FRED data.
+  Any "does Polymarket add value" comparison is only valid over that
+  overlapping window — this will need to be stated explicitly in any
+  final results, not glossed over.
+- **FRED series are current-revised values, not point-in-time.** CPI/PPI/
+  payrolls get revised after first release; pulling today's value and
+  treating it as "what was known on that date" is look-ahead bias. Phase 2
+  fixes this before any of this data touches a model.
+- Only the "no rate change" market is tracked per meeting so far — the
+  25bps/50bps cut and hike markets exist too and may be worth pulling for
+  a richer signal than a single probability.
 
 Everything else below is still a `# TODO` placeholder file, filled in as
 we reach that phase.
