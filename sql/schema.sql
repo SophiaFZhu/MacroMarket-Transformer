@@ -2,7 +2,7 @@
 -- observation_date = the period the number describes (e.g. "March 2026 CPI")
 -- release_date      = the day the market could actually see this value
 -- A feature table for date t must only join rows where release_date <= t.
-CREATE TABLE macro_observations (
+CREATE TABLE IF NOT EXISTS macro_observations (
     series_id TEXT NOT NULL,
     observation_date DATE NOT NULL,
     release_date DATE NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE macro_observations (
 -- needs to pick "whichever meeting is next as of date t" and sum the two
 -- cut-bucket outcomes -- both need to be queryable without a join back to
 -- an external file.
-CREATE TABLE polymarket_prices (
+CREATE TABLE IF NOT EXISTS polymarket_prices (
     market_id TEXT NOT NULL,        -- full market question, e.g. "Fed decreases interest rates by 25 bps after January 2025 meeting?"
     meeting_end_date DATE NOT NULL, -- which FOMC meeting this market resolves on
     outcome TEXT NOT NULL,          -- one of: no_change, cut_25, cut_50, hike_25, hike_50
@@ -26,7 +26,7 @@ CREATE TABLE polymarket_prices (
 );
 
 -- Daily SPY OHLCV.
-CREATE TABLE spy_prices (
+CREATE TABLE IF NOT EXISTS spy_prices (
     date DATE PRIMARY KEY,
     open REAL NOT NULL,
     high REAL NOT NULL,
@@ -36,13 +36,13 @@ CREATE TABLE spy_prices (
 );
 
 -- Daily VIX close (only the close is used as a feature; keep it minimal).
-CREATE TABLE vix_prices (
+CREATE TABLE IF NOT EXISTS vix_prices (
     date DATE PRIMARY KEY,
     close REAL NOT NULL
 );
 
 -- Leakage-safe daily feature matrix X_t, built only from rows known by t.
-CREATE TABLE daily_features (
+CREATE TABLE IF NOT EXISTS daily_features (
     date DATE PRIMARY KEY,
     spy_return_1d REAL,
     spy_return_5d REAL,

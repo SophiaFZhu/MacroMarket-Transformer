@@ -58,9 +58,10 @@ def build_dataset(conn) -> pd.DataFrame:
     # means) -- the leakage rule from Phase 2/3 is about FEATURES, not
     # about the label depending on the future.
     df["future_return"] = df["close"].shift(-HORIZON) / df["close"] - 1.0
+    # NaN > 0 is False, not NaN -- drop rows with no future price BEFORE
+    # deriving target, or the last HORIZON rows silently mislabel as "down".
+    df = df.dropna(subset=MACRO_ONLY_FEATURES + ["future_return"]).reset_index(drop=True)
     df["target"] = (df["future_return"] > 0).astype(int)
-
-    df = df.dropna(subset=MACRO_ONLY_FEATURES + ["target"]).reset_index(drop=True)
     return df
 
 

@@ -29,26 +29,37 @@
 
 | Model | Accuracy | AUC | Log loss |
 |---|---|---|---|
-| Naive (majority class) | 0.604 ± 0.050 | 0.500 ± 0.000 | 0.674 ± 0.027 |
-| Persistence (sign of last 5d return) | 0.513 ± 0.036 | 0.486 ± 0.023 | 6.731 ± 0.495 |
-| Logistic regression | 0.603 ± 0.051 | 0.519 ± 0.040 | 0.865 ± 0.240 |
-| Random forest | 0.582 ± 0.039 | 0.501 ± 0.044 | 0.697 ± 0.015 |
-| LSTM | 0.586 ± 0.048 | 0.500 ± 0.056 | 0.724 ± 0.063 |
-| Small Transformer | 0.556 ± 0.051 | 0.528 ± 0.062 | 1.025 ± 0.247 |
+| Naive (majority class) | 0.606 ± 0.050 | 0.500 ± 0.000 | 0.673 ± 0.027 |
+| Persistence (sign of last 5d return) | 0.513 ± 0.037 | 0.486 ± 0.024 | 6.728 ± 0.515 |
+| Logistic regression | 0.602 ± 0.047 | 0.518 ± 0.037 | 0.872 ± 0.248 |
+| Random forest | 0.565 ± 0.065 | 0.499 ± 0.049 | 0.700 ± 0.012 |
+| LSTM | 0.537 ± 0.097 | 0.489 ± 0.039 | 0.742 ± 0.070 |
+| Small Transformer | 0.536 ± 0.074 | 0.514 ± 0.065 | 1.126 ± 0.325 |
 
 Full per-fold numbers: `phase4_model_ladder_folds.csv`.
+
+*(Corrected 2026-09-10: an earlier version of `run_model_ladder.py` derived
+`target` from `future_return` before dropping rows with no future price —
+`NaN > 0` evaluates to `False` in pandas, not `NaN`, so the last 5 rows of
+the whole dataset were silently mislabeled "down" instead of being
+excluded. Fixed by dropping on `future_return` first. Only 5 rows out of
+2,655 were affected directly, but it shifted the walk-forward fold
+boundaries slightly, which is why numbers here differ a little from
+version-1 results — conclusions are unchanged, if anything slightly
+reinforced: LSTM/Transformer look somewhat worse, not better, after the
+fix.)*
 
 ## Interpretation
 
 **No model beats the naive baseline in a way that looks like real signal.**
 The naive majority-class predictor — which uses zero information about
-any feature, it just always predicts "up" — already gets 60.4% accuracy,
+any feature, it just always predicts "up" — already gets 60.6% accuracy,
 because SPY goes up more often than not over 5-day windows in this
 sample. Every other model's accuracy is at or below that. AUC (which,
 unlike accuracy, actually measures discrimination rather than exploiting
-class imbalance) sits at essentially 0.50 ± noise for every model except
-the Transformer's 0.528 ± 0.062 — and that gap is well within one
-standard deviation of pure noise, not a reliable edge.
+class imbalance) sits at essentially 0.50 ± noise for every model, best
+case logistic regression's 0.518 ± 0.037 — well within one standard
+deviation of pure noise, not a reliable edge.
 
 The persistence baseline doing *worse* than coin-flip AUC (0.486) is
 itself informative: 5-day SPY returns don't meaningfully autocorrelate in
@@ -68,10 +79,11 @@ returns), not the macro ones.
 **Model complexity didn't help, as the roadmap predicted it might not**
 (section 26: "If Logistic Regression matches or beats the Transformer,
 that is a useful finding"). Logistic regression is statistically tied
-with the naive baseline on accuracy and has the second-best AUC. The
-Transformer has the best AUC but also the worst log loss (most
-overconfident-and-wrong), on a dataset (~2,100 training rows per fold)
-that's small relative to what Transformers are usually built for.
+with the naive baseline on accuracy and has the best AUC of anything in
+the ladder. LSTM and the Transformer are the two *worst* performers on
+accuracy, and both have among the worst log loss (most
+overconfident-and-wrong) — on a dataset (~2,100 training rows per fold)
+that's small relative to what these architectures are usually built for.
 
 ## What this does and doesn't say about Phase 5
 

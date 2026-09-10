@@ -19,13 +19,16 @@ whatever the data actually shows, including a negative result.
 
 ## Status
 
-Phases 1-4 (data → vintage alignment → daily feature matrix → model
-ladder) done. **First real result**: on a macro-only feature set, none of
-naive / persistence / logistic / random forest / LSTM / small Transformer
-beats a majority-class baseline in any way that isn't noise — see
-`reports/PHASE4_FINDINGS.md`. Building the project end-to-end first, with
-the PDF roadmap as the explanatory syllabus alongside each piece of real
-code — see "Current phase" below.
+All 5 roadmap phases done (data → vintage alignment → daily feature
+matrix → model ladder → Polymarket comparison + backtest + agents). **The
+project's actual research question is answered**: no model — with or
+without Polymarket expectation data — beats a naive baseline in a way
+that isn't noise, and every model-based backtest badly underperforms
+buy-and-hold SPY over this period. See `reports/PHASE4_FINDINGS.md` and
+`reports/PHASE5_FINDINGS.md`. Built end-to-end with the PDF roadmap as the
+explanatory syllabus alongside each piece of real code — see "Current
+phase" below for what exists and `reports/REVIEWER_REPORT.md` for the
+automated review of it all.
 
 ## Current phase
 
@@ -128,9 +131,45 @@ math/CS/Python from the real pipeline as it's built, phase by phase.
   usual "50+ bps" one; `polymarket_client.py`'s outcome classifier doesn't
   match it, so that meeting's cut probability slightly understates the
   true total for that one window.
+- **No hyperparameter tuning was done against the evaluation folds**, in
+  either Phase 4 or Phase 5 — model settings (RF depth, LSTM/Transformer
+  size, epoch counts) are fixed reasonable defaults, not the result of a
+  search. Tuning against the same folds used for the final reported
+  comparison would itself be a form of look-ahead bias into the
+  validation set (the roadmap's Reviewer Agent role exists partly to catch
+  exactly this kind of thing — see `src/agents/reviewer_agent.py`).
+- **The Phase 5 backtest includes no transaction costs.** Real trading
+  would be worse than the reported `strategy_total_return` numbers,
+  especially given ~64 trades over the ~2-year Polymarket-covered window.
+  `spy-garch-vwap`'s 1% round-trip assumption is a reasonable precedent to
+  apply here before treating any of this as remotely investable.
 
-Everything below `src/agents/` and `src/models/` is still a `# TODO`
-placeholder file, filled in as we reach that phase.
+**Phase 5 — the actual research question + backtest + agents: done.**
+`src/validation/run_polymarket_comparison.py` runs the macro-only vs.
+macro+Polymarket feature comparison on the ~524-row Aug-2024-onward
+overlap window (3 walk-forward folds; LSTM/Transformer skipped here —
+too small a sample to trust a deep sequence model's result, and Phase 4
+already showed complexity wasn't the bottleneck). `src/validation/
+backtest.py` turns out-of-sample predictions into a simple long/flat
+strategy vs. buy-and-hold, on a non-overlapping trade sequence (stride =
+the 5-day horizon, so consecutive trades' return windows don't overlap).
+`src/agents/{data_quality,reviewer}_agent.py` are real, runnable
+automated-check modules (not LLM calls — see their docstrings for why),
+and `src/agents/{macro,polymarket,market,modelling,backtest}_agent.py` +
+`orchestrator.py` wire the whole pipeline into one entry point. Full
+write-up: `reports/PHASE5_FINDINGS.md`.
+
+**Result: still no evidence Polymarket data helps** — AUC for both
+logistic regression and random forest was *slightly lower* with
+`fed_cut_probability`/`_delta` added than without, though the sample here
+(3 folds, ~106 rows each) is too small to call that a real negative
+effect rather than noise. The backtest tells a consistent story: both
+feature sets' long/flat strategies badly underperform buy-and-hold SPY
+over this window (macro-only: 4.4% strategy return vs. 31.0%
+buy-and-hold; macro+Polymarket: 6.0% vs. 31.0%) — being flat ~45-47% of
+the time forfeits most of a strong bull run's upside. See
+`reports/PHASE5_FINDINGS.md` for the full picture, including why this
+doesn't contradict Phase 4's finding.
 
 | Phase | Roadmap week(s) | What it covers |
 |---|---|---|
@@ -140,12 +179,14 @@ placeholder file, filled in as we reach that phase.
 | 4. Baselines → LSTM → Transformer | 4, 6 | Model ladder in `src/models/` |
 | 5. Multi-agent workflow & validation | 8 | Agents in `src/agents/`, walk-forward backtest |
 
-## Data sources (planned)
+## Data sources
 
-- **Polymarket** — Fed cuts/hikes, inflation, recession, unemployment, GDP
-  expectation markets
-- **FRED** — Fed Funds Rate, 2Y/10Y Treasury, CPI, PPI
-- **BLS** — Unemployment rate, payrolls, jobless claims, JOLTS, wage growth
+- **Polymarket** — Fed cuts/hikes/no-change expectation markets, all
+  meetings back to Sept 2024. *Not yet pulled*: inflation, recession,
+  unemployment, GDP expectation markets from the roadmap's original scope.
+- **FRED** — Fed Funds Rate, 2Y/10Y Treasury, CPI, PPI, unemployment rate,
+  payrolls, jobless claims (FRED mirrors the BLS series, so no separate
+  BLS client was needed)
 - **SPY market data** — OHLCV, realized volatility, VIX
 
 ## Key principle: no look-ahead bias
@@ -159,7 +200,7 @@ future information is scientifically invalid, not just "optimistic."
 ## Repository structure
 
 ```
-data/raw/{polymarket,fred,bls,spy}/   # untouched source data
+data/raw/{polymarket,fred,spy}/       # untouched source data (no BLS client -- FRED mirrors what's needed)
 data/processed/                       # aligned, leakage-safe feature tables
 src/data/                             # API clients (fred, bls, polymarket, market)
 src/features/                         # macro / market / prediction-market features
@@ -181,14 +222,68 @@ cd sophia-macro-ai-spy
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # then fill in FRED_API_KEY etc.
+cp .env.example .env   # then add your free FRED_API_KEY (fred.stlouisfed.org/docs/api/api_key.html)
 ```
 
-No API keys are required yet — nothing calls out to FRED/BLS/Polymarket
-until Phase 1 data collection starts.
+Polymarket and SPY/VIX need no API key. FRED does, but it's free and
+instant.
+
+## Running it
+
+```bash
+python3 src/agents/orchestrator.py   # the whole pipeline: data -> SQL -> quality check -> models -> backtest -> review
+```
+
+Or run any stage independently — each agent module and script is
+standalone runnable (`python3 src/agents/<name>_agent.py`,
+`python3 src/validation/run_model_ladder.py`, etc.) — useful when only a
+downstream stage needs to rerun (e.g. after a model code change with no
+new data). Run `python3 -m pytest tests/` for the unit tests.
 
 ## What I learned
 
-(To be filled in once there's something to report — data leakage findings,
-baseline vs. Transformer comparison, whether Polymarket data added
-incremental information, and research limitations.)
+- **Look-ahead bias is easy to introduce by accident, even when you're
+  specifically trying to avoid it.** Two separate bugs made it into this
+  project despite Phase 2 being entirely about preventing exactly this
+  class of error: FRED's daily rate series (`DFF`/`DGS2`/`DGS10`) blew
+  past the vintage-query API's row cap because they get re-stamped daily
+  without being revised (fixed by treating them differently, not with the
+  vintage-history approach used for CPI/PPI/etc.); and `NaN > 0` evaluates
+  to `False` in pandas, not `NaN`, which silently mislabeled the last 5
+  rows of every dataset as "down" instead of dropping them, and broke the
+  Phase 5 backtest's cumulative return outright (`NaN` poisons a
+  `cumprod()` from the first bad row onward) before it was caught and
+  fixed. The `merge_asof(direction="backward")` mechanism itself worked
+  correctly throughout and is now covered by tests — it was the code
+  *around* it that had bugs.
+- **Model complexity did not help, anywhere, on this problem.** Across
+  both the 10-year macro-only ladder (Phase 4) and the 2-year
+  Polymarket-inclusive comparison (Phase 5), logistic regression and
+  random forest were competitive with or better than LSTM and a small
+  Transformer, and nothing beat a naive majority-class baseline by more
+  than noise. This matches the roadmap's own expectation (section 26)
+  and this user's prior project ([`spy-garch-vwap`](../spy-garch-vwap/results/FINDINGS.md)):
+  short-horizon SPY direction from daily macro/market features doesn't
+  contain much learnable signal, and a fancier architecture can't
+  manufacture signal that isn't in the data.
+- **Polymarket's Fed-cut expectations did not add forecasting value**
+  over the ~2-year window where the data exists — if anything AUC was
+  slightly lower with it included, though the sample (519 rows, 3 folds)
+  is too small to call that a real effect rather than noise. This is the
+  project's central research question, and the honest answer, on the
+  slice of Polymarket data collected so far (Fed-decision markets only —
+  inflation/recession/GDP expectation markets from the roadmap's original
+  scope were never pulled), is: no evidence it helps.
+- **A backtest number and a forecast-accuracy number can tell different
+  parts of the same story.** Neither model beat buy-and-hold SPY (4-6%
+  strategy return vs. 31% buy-and-hold over 2 years) even though their
+  AUCs were only mildly worse than random — being wrong (or flat) on the
+  wrong days in a strong bull market is expensive in a way accuracy alone
+  doesn't capture.
+- **Full pipeline reproducibility (`orchestrator.py`) surfaces bugs that
+  a one-off script run won't.** Re-running the whole thing end-to-end
+  caught a real bug immediately: `database.py`'s schema creation wasn't
+  idempotent (`CREATE TABLE` without `IF NOT EXISTS`), so a second run
+  against an existing database crashed. Fixed by making every `CREATE
+  TABLE` idempotent — an easy thing to miss when you only ever test
+  against a freshly deleted database file.
