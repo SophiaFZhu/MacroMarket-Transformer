@@ -29,14 +29,31 @@
 
 | Model | Accuracy | AUC | Log loss |
 |---|---|---|---|
-| Naive (majority class) | 0.606 ± 0.050 | 0.500 ± 0.000 | 0.673 ± 0.027 |
-| Persistence (sign of last 5d return) | 0.513 ± 0.037 | 0.486 ± 0.024 | 6.728 ± 0.515 |
-| Logistic regression | 0.602 ± 0.047 | 0.518 ± 0.037 | 0.872 ± 0.248 |
-| Random forest | 0.565 ± 0.065 | 0.499 ± 0.049 | 0.700 ± 0.012 |
-| LSTM | 0.537 ± 0.097 | 0.489 ± 0.039 | 0.742 ± 0.070 |
-| Small Transformer | 0.536 ± 0.074 | 0.514 ± 0.065 | 1.126 ± 0.325 |
+| Naive (majority class) | 0.605 ± 0.050 | 0.500 ± 0.000 | 0.674 ± 0.027 |
+| Persistence (sign of last 5d return) | 0.512 ± 0.037 | 0.485 ± 0.024 | 6.738 ± 0.504 |
+| Logistic regression | 0.604 ± 0.050 | 0.518 ± 0.039 | 0.864 ± 0.240 |
+| Random forest | 0.583 ± 0.039 | 0.500 ± 0.045 | 0.696 ± 0.015 |
+| LSTM | 0.586 ± 0.048 | 0.500 ± 0.057 | 0.724 ± 0.064 |
+| Small Transformer | 0.556 ± 0.052 | 0.528 ± 0.062 | 1.025 ± 0.247 |
 
 Full per-fold numbers: `phase4_model_ladder_folds.csv`.
+
+*(Refreshed 2026-09-17 after the FOMC's 0.25pp rate move: full data pipeline
+re-pulled (FRED + SPY/VIX + Polymarket) and the model ladder re-run end to
+end via `src/agents/orchestrator.py`. Dataset grew to 2,655 rows through
+2026-09-10 (the newest date with a known 5-day-forward label given data
+through 2026-09-17). Numbers above shifted by ~1-2 points versus the prior
+run — consistent with a few more weeks of data plus model-init randomness
+(RF/LSTM/Transformer aren't seeded), not a structural change. **The hike
+itself is not yet visible in this dataset**: FRED's daily effective fed
+funds rate (`DFF`) was still 3.63% through 2026-09-15 (the latest value
+published as of this pull) — DFF publishes with a ~2-business-day lag, so
+a rate decision announced 2026-09-17 won't show up until FRED's next
+release. `yield_2y`/`yield_10y`/`yield_spread_10y_2y` (from `DGS2`/`DGS10`,
+same lag) are likewise not yet reflecting it. Conclusion below is
+unchanged either way: AUC is ~0.50 across the board regardless of the
+exact fed-funds level, and a single 25bp move is a small perturbation to a
+feature the model ladder already couldn't extract signal from.)*
 
 *(Corrected 2026-09-10: an earlier version of `run_model_ladder.py` derived
 `target` from `future_return` before dropping rows with no future price —

@@ -7,11 +7,12 @@ holding SPY?*
 
 ## Setup
 
-- **Window**: restricted to the 519 rows where both feature sets are
-  fully populated — 2024-08-08 → 2026-09-02 (Polymarket's real coverage
-  start, see README Known Limitations). Both feature sets use the
-  identical rows and identical folds — a difference in score can only be
-  the feature, not which days got tested.
+- **Window**: restricted to the rows where both feature sets are
+  fully populated — 2024-08-08 → 2026-09-10 (524 rows as of the
+  2026-09-17 refresh; Polymarket's real coverage start, see README Known
+  Limitations). Both feature sets use the identical rows and identical
+  folds — a difference in score can only be the feature, not which days
+  got tested.
 - **Feature sets**: `macro_only` (the same 11 features as Phase 4) vs.
   `macro_plus_polymarket` (+ `fed_cut_probability`, `fed_cut_probability_delta`).
 - **Models**: naive, persistence, logistic, random forest. LSTM/Transformer
@@ -33,56 +34,67 @@ holding SPY?*
 
 | Feature set | Model | Accuracy | AUC |
 |---|---|---|---|
-| macro_only | naive | 0.618 | 0.500 |
-| macro_only | persistence | 0.470 | 0.404 |
-| macro_only | logistic | 0.430 | **0.548** |
-| macro_only | random forest | 0.542 | **0.571** |
-| macro_plus_polymarket | naive | 0.618 | 0.500 |
-| macro_plus_polymarket | persistence | 0.470 | 0.404 |
-| macro_plus_polymarket | logistic | 0.445 | 0.518 |
-| macro_plus_polymarket | random forest | 0.530 | 0.558 |
+| macro_only | naive | 0.611 | 0.500 |
+| macro_only | persistence | 0.466 | 0.407 |
+| macro_only | logistic | 0.454 | **0.548** |
+| macro_only | random forest | 0.546 | 0.558 |
+| macro_plus_polymarket | naive | 0.611 | 0.500 |
+| macro_plus_polymarket | persistence | 0.466 | 0.407 |
+| macro_plus_polymarket | logistic | 0.441 | 0.528 |
+| macro_plus_polymarket | random forest | 0.549 | **0.561** |
 
 Full numbers: `phase5_polymarket_comparison_summary.csv` /
 `_folds.csv`.
 
-### Backtest (logistic model, 64 non-overlapping trades, ~2 years)
+### Backtest (logistic model, 65 non-overlapping trades, ~2 years)
 
 | | Total return | Sharpe | Max drawdown | % time long |
 |---|---|---|---|---|
-| macro_only strategy | 4.4% | 0.47 | -8.7% | 53.1% |
-| macro_plus_polymarket strategy | 6.0% | 0.59 | -8.7% | 56.2% |
-| Buy-and-hold SPY | **31.0%** | **1.87** | -8.7% | 100% |
+| macro_only strategy | 10.0% | 0.85 | -8.7% | 53.8% |
+| macro_plus_polymarket strategy | 9.0% | 0.75 | -8.7% | 61.5% |
+| Buy-and-hold SPY | **29.5%** | **1.76** | -8.7% | 100% |
+
+*(Refreshed 2026-09-17, see `PHASE4_FINDINGS.md` for the same-day data
+refresh note re: the FOMC's 0.25pp move not yet appearing in FRED's
+published series. Numbers above replace the 2026-09-10 run: dataset grew
+from 519 to 524 rows and the window's end moved from 2026-09-02 to
+2026-09-10. Direction of the finding is unchanged, though which model
+"wins" on AUC when Polymarket is added flipped for random forest — 0.571
+→ 0.558 in the prior run, 0.558 → 0.561 here — underscoring the
+Interpretation section's point below that this comparison is noisy at 3
+folds and shouldn't be read as a stable ranking either way.)*
 
 ## Interpretation
 
-**Adding Polymarket data did not help — for both models tested, AUC got
-slightly *worse* with it added** (logistic: 0.548 → 0.518; random forest:
-0.571 → 0.558). Given the small sample (3 folds, ~106 rows each), this
-should not be read as strong evidence that Polymarket data actively
-*hurts* — the gap is well within what 3 folds of noise could produce.
-What it does support is the negative: **no evidence Polymarket's Fed-cut
+**Adding Polymarket data did not clearly help — results are mixed and
+within noise.** Logistic regression's AUC got slightly *worse* with
+Polymarket added (0.548 → 0.528); random forest's got slightly *better*
+(0.558 → 0.561). Given the small sample (3 folds, ~106 rows each), neither
+move should be read as a real effect in either direction — both are well
+within what 3 folds of noise could produce. What the results do support
+is the negative: **no consistent evidence Polymarket's Fed-cut
 expectations add forecasting value for SPY direction over this window**,
 consistent with Phase 4's broader finding that nothing in this pipeline
 beats a simple baseline by a meaningful margin.
 
-Interesting aside: `macro_only`'s AUC (0.548, 0.571) is actually a bit
-higher here than in Phase 4's full-history run (0.518, 0.499) — but this
-window is also much shorter (2 years vs. 10) and a different market
-regime (mostly a strong, low-volatility bull run), so this isn't a
-contradiction, just a reminder that a 3-fold, 2-year result is noisier
-and less trustworthy than the 5-fold, 10-year one. The full-history
-result is the one to trust more.
+Interesting aside: `macro_only`'s AUC here (0.548, 0.558) is close to
+Phase 4's full-history run (0.518, 0.500) — but this window is also much
+shorter (2 years vs. 10) and a different market regime (mostly a strong,
+low-volatility bull run), so any small difference isn't a contradiction,
+just a reminder that a 3-fold, 2-year result is noisier and less
+trustworthy than the 5-fold, 10-year one. The full-history result is the
+one to trust more.
 
 **The backtest makes the practical stakes concrete.** Both model-based
-strategies dramatically underperform simply holding SPY — 4-6% total
-return vs. 31% buy-and-hold, over a period when SPY happened to go up a
-lot. Being flat ~44-47% of the time (whenever the model predicted "down")
+strategies dramatically underperform simply holding SPY — 9-10% total
+return vs. ~30% buy-and-hold, over a period when SPY happened to go up a
+lot. Being flat ~38-46% of the time (whenever the model predicted "down")
 forfeited most of that upside, and the model wasn't accurate enough at
 picking *which* days to be flat on to make up for it. This is exactly
 what "no real edge" costs in practice, not just an abstract AUC number.
 
 **What would change this conclusion**: more Polymarket history (the
-single biggest constraint — 519 rows is a small sample for this kind of
+single biggest constraint — ~500 rows is a small sample for this kind of
 question), the missing CPI/inflation/recession Polymarket markets (this
 project only pulled Fed-decision markets — see README structure, the PDF
 also lists inflation/recession/GDP expectation markets as available),

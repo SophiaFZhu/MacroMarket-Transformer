@@ -147,6 +147,13 @@ math/CS/Python from the real pipeline as it's built, phase by phase.
   comparison would itself be a form of look-ahead bias into the
   validation set (the roadmap's Reviewer Agent role exists partly to catch
   exactly this kind of thing — see `src/agents/reviewer_agent.py`).
+- **FRED's daily-frequency series lag real-world events by ~2 business
+  days.** `DFF`/`DGS2`/`DGS10` (fed funds rate, 2Y/10Y yields) aren't
+  revised like CPI/PPI, but they also aren't same-day — confirmed
+  2026-09-17 when a same-day FOMC rate move wasn't yet in the freshly
+  pulled data (see "Data refresh" note above). Don't expect this pipeline
+  to reflect a macro event until a couple of business days after it
+  happens.
 - **The Phase 5 backtest includes no transaction costs.** Real trading
   would be worse than the reported `strategy_total_return` numbers,
   especially given ~64 trades over the ~2-year Polymarket-covered window.
@@ -168,17 +175,31 @@ and `src/agents/{macro,polymarket,market,modelling,backtest}_agent.py` +
 `orchestrator.py` wire the whole pipeline into one entry point. Full
 write-up: `reports/PHASE5_FINDINGS.md`.
 
-**Result: still no evidence Polymarket data helps** — AUC for both
-logistic regression and random forest was *slightly lower* with
-`fed_cut_probability`/`_delta` added than without, though the sample here
-(3 folds, ~106 rows each) is too small to call that a real negative
-effect rather than noise. The backtest tells a consistent story: both
+**Result: still no evidence Polymarket data helps** — AUC moved in
+opposite directions for the two models when `fed_cut_probability`/`_delta`
+were added (logistic slightly lower, random forest slightly higher),
+which given the sample here (3 folds, ~106 rows each) reads as noise
+either way, not a real effect. The backtest tells a consistent story: both
 feature sets' long/flat strategies badly underperform buy-and-hold SPY
-over this window (macro-only: 4.4% strategy return vs. 31.0%
-buy-and-hold; macro+Polymarket: 6.0% vs. 31.0%) — being flat ~45-47% of
+over this window (macro-only: 10.0% strategy return vs. 29.5%
+buy-and-hold; macro+Polymarket: 9.0% vs. 29.5%) — being flat ~38-46% of
 the time forfeits most of a strong bull run's upside. See
 `reports/PHASE5_FINDINGS.md` for the full picture, including why this
 doesn't contradict Phase 4's finding.
+
+**Data refresh, 2026-09-17 (FOMC 0.25pp rate move):** re-ran the full
+pipeline (`src/agents/orchestrator.py`) end to end to pick up the new
+decision — fresh FRED/SPY/VIX/Polymarket pulls, rebuilt `daily_features`,
+full model ladder + Phase 5 comparison + backtest re-run. Conclusions did
+not change (still no edge beyond noise on either phase). One thing worth
+flagging as its own limitation: **FRED's daily series (`DFF`, `DGS2`,
+`DGS10`) publish on a ~2-business-day lag**, so a rate decision announced
+today does not appear in `fed_funds_rate`/`yield_2y`/`yield_10y` until
+FRED's next release — as of this pull those series still showed the
+pre-announcement level. Any same-day "did the model react to today's Fed
+move" question can't be answered from this pipeline until that lag
+clears; it would need to be re-run again in a couple of business days to
+actually reflect the new rate.
 
 | Phase | Roadmap week(s) | What it covers |
 |---|---|---|
